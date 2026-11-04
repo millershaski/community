@@ -6,8 +6,7 @@ export function parseRoute() {
 
   if (seg[0] === 'issues' && seg[1]) {
     const issueId = Number(seg[1]) || 0;
-    const tab = seg[2] === 'overview' ? 'overview' : 'list';
-    return { name: 'issue', issueId, tab, taskId, path: `/issues/${issueId}${tab === 'overview' ? '/overview' : ''}` };
+    return { name: 'issue', issueId, taskId, path: `/issues/${issueId}` };
   }
   if (seg[0] === 'issues') return { name: 'issues', taskId, path: '/issues' };
   if (seg[0] === 'team') return { name: 'team', taskId, path: '/team' };

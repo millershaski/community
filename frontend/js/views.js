@@ -196,10 +196,10 @@ export function renderIssues() {
   const shown = state.issues.filter((i) => filter === 'all' || i.status === filter).sort(byDue);
   const list = h(
     'div',
-    { class: 'list issues-table' },
+    { class: 'list issues-list' },
     h(
       'div',
-      { class: 'row list-head' },
+      { class: 'row issue-row list-head' },
       h('div', { class: 'cell cell-name' }, 'Name'),
       h('div', { class: 'cell c-owner' }, 'Owner'),
       h('div', { class: 'cell cell-due' }, 'Due date'),
@@ -210,12 +210,29 @@ export function renderIssues() {
       const owner = memberById(issue.owner_id);
       const pct = issue.task_count ? Math.round((issue.completed_task_count / issue.task_count) * 100) : 0;
       const deps = issue.depends_on.map(issueById).filter(Boolean);
-      return h(
+      const collapsed = state.ui.collapsedIssues.has(issue.id);
+      const row = h(
         'div',
-        { class: `row${issue.status === 'closed' ? ' done' : ''}`, tabindex: '0', role: 'link', onclick: () => go(`/issues/${issue.id}`), onkeydown: (e) => e.key === 'Enter' && go(`/issues/${issue.id}`) },
+        { class: `row issue-row${issue.status === 'closed' ? ' done' : ''}`, tabindex: '0', role: 'link', onclick: () => go(`/issues/${issue.id}`), onkeydown: (e) => e.key === 'Enter' && go(`/issues/${issue.id}`) },
         h(
           'div',
           { class: 'cell cell-name' },
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'expander',
+              'aria-expanded': String(!collapsed),
+              'aria-label': `${collapsed ? 'Show' : 'Hide'} tasks of ${issue.title}`,
+              onclick: (e) => {
+                e.stopPropagation();
+                if (collapsed) state.ui.collapsedIssues.delete(issue.id);
+                else state.ui.collapsedIssues.add(issue.id);
+                emit();
+              },
+            },
+            icon('chevron', 14),
+          ),
           h('span', { class: 'dot big', style: { background: issueColor(issue.id) } }),
           h('span', { class: 'task-title' }, issue.title),
           issue.status === 'closed' ? h('span', { class: 'tag done' }, 'Closed') : null,
@@ -226,12 +243,35 @@ export function renderIssues() {
         h('div', { class: 'cell c-progress' }, h('div', { class: 'bar', role: 'progressbar', 'aria-valuenow': String(pct), 'aria-valuemin': '0', 'aria-valuemax': '100' }, h('div', { class: 'bar-fill', style: { width: `${pct}%` } })), h('span', { class: 'muted small' }, `${issue.completed_task_count}/${issue.task_count}`)),
         h('div', { class: 'cell c-deps' }, deps.length ? deps.map((d) => h('span', { class: 'mini-chip' }, d.title)) : h('span', { class: 'muted' }, '—')),
       );
+      return issueBlock(issue, row);
     }),
   );
   return h('div', { class: 'page' }, header, shown.length ? list : empty('No issues here', filter === 'closed' ? 'Closed issues will appear here.' : 'Create an issue to get started.', h('button', { type: 'button', class: 'btn primary', onclick: issueDialog }, 'New issue')));
 }
 
 // ---------- Single issue ----------
+
+// One issue in the All issues list, with its tasks listed underneath.
+function issueBlock(issue, row) {
+  const collapsed = state.ui.collapsedIssues.has(issue.id);
+  const tasks = tasksOfIssue(issue.id);
+  const ordered = [...tasks.filter((t) => !t.completed), ...tasks.filter((t) => t.completed)];
+  return h(
+    'div',
+    { class: 'issue-block' },
+    row,
+    collapsed
+      ? null
+      : h(
+          'div',
+          { class: 'sub-tasks cols-issue' },
+          ...ordered.map((t) => taskRow(t, 'issue')),
+          h('div', { class: 'row add-row' }, icon('plus', 16), addTaskInput({ focusKey: `add-${issue.id}`, onSubmit: (title) => actions.createTask(issue.id, { title }) })),
+        ),
+  );
+}
+
+const inlineField = (label, control) => h('div', { class: 'inline-field' }, h('span', { class: 'label' }, label), control);
 
 export function renderIssue(route) {
   const issue = issueById(route.issueId);
@@ -253,6 +293,14 @@ export function renderIssue(route) {
     },
   });
 
+  const remove = async () => {
+    const n = tasksOfIssue(issue.id).length;
+    if (await confirmDialog({ title: 'Delete issue?', message: `"${issue.title}"${n ? ` and its ${n} task${n === 1 ? '' : 's'}` : ''} will be permanently deleted.` })) {
+      go('/issues');
+      actions.deleteIssue(issue.id);
+    }
+  };
+
   const header = h(
     'div',
     { class: 'page-header' },
@@ -265,20 +313,23 @@ export function renderIssue(route) {
       issue.blocked ? h('span', { class: 'tag blocked' }, icon('lock', 11), 'Blocked') : null,
       h('span', { class: 'spacer' }),
       h('button', { type: 'button', class: 'btn secondary', onclick: () => actions.updateIssue(issue.id, { status: closed ? 'open' : 'closed' }) }, closed ? 'Reopen issue' : 'Close issue'),
+      h('button', { type: 'button', class: 'icon-btn', title: 'Delete issue', 'aria-label': 'Delete issue', onclick: remove }, icon('trash', 18)),
     ),
     h(
       'div',
-      { class: 'meta-row' },
-      h('span', { class: 'meta' }, avatar(owner, 22), owner ? owner.name : 'No owner'),
-      issue.due_date ? h('span', { class: `meta ${dueClass(issue.due_date, closed)}` }, icon('calendar', 14), dueLabel(issue.due_date)) : null,
-      h('span', { class: 'meta muted' }, `${issue.completed_task_count}/${issue.task_count} tasks complete`),
-    ),
-    tabs(
-      [
-        ['list', 'List', hrefFor(`/issues/${issue.id}`)],
-        ['overview', 'Overview', hrefFor(`/issues/${issue.id}/overview`)],
-      ],
-      route.tab,
+      { class: 'inline-fields' },
+      inlineField('Owner', h('div', { class: 'with-avatar' }, avatar(owner, 24), memberSelect(issue.owner_id, (id) => actions.updateIssue(issue.id, { owner_id: id }), 'No owner'))),
+      inlineField('Due date', dateInput(issue.due_date, (v) => actions.updateIssue(issue.id, { due_date: v }))),
+      inlineField(
+        'Status',
+        h(
+          'select',
+          { class: 'select', 'aria-label': 'Status', value: issue.status, onchange: (e) => actions.updateIssue(issue.id, { status: e.target.value }) },
+          h('option', { value: 'open' }, 'Open'),
+          h('option', { value: 'closed' }, 'Closed'),
+        ),
+      ),
+      h('span', { class: 'muted small progress-text' }, `${issue.completed_task_count}/${issue.task_count} tasks complete`),
     ),
   );
 
@@ -286,7 +337,7 @@ export function renderIssue(route) {
     ? h('div', { class: 'banner' }, icon('lock', 16), h('span', {}, 'Blocked by '), ...blockers.flatMap((b, i) => [i ? ', ' : null, h('a', { href: hrefFor(`/issues/${b.id}`) }, b.title)]))
     : null;
 
-  return h('div', { class: 'page' }, header, banner, route.tab === 'overview' ? issueOverview(issue) : issueList(issue));
+  return h('div', { class: 'page' }, header, banner, issueList(issue), issueDetails(issue));
 }
 
 function issueList(issue) {
@@ -323,7 +374,7 @@ function issueList(issue) {
   return list;
 }
 
-function issueOverview(issue) {
+function issueDetails(issue) {
   const blocking = state.issues.filter((i) => i.depends_on.includes(issue.id));
   return h(
     'div',
@@ -354,37 +405,6 @@ function issueOverview(issue) {
           : null,
       ),
       h('section', {}, h('h3', { class: 'section-title' }, 'Comments'), commentsSection('issue', issue.id)),
-    ),
-    h(
-      'aside',
-      { class: 'overview-side' },
-      field('Owner', h('div', { class: 'with-avatar' }, avatar(memberById(issue.owner_id), 28), memberSelect(issue.owner_id, (id) => actions.updateIssue(issue.id, { owner_id: id }), 'No owner'))),
-      field('Due date', dateInput(issue.due_date, (v) => actions.updateIssue(issue.id, { due_date: v }))),
-      field(
-        'Status',
-        h(
-          'select',
-          { class: 'select', 'aria-label': 'Status', value: issue.status, onchange: (e) => actions.updateIssue(issue.id, { status: e.target.value }) },
-          h('option', { value: 'open' }, 'Open'),
-          h('option', { value: 'closed' }, 'Closed'),
-        ),
-      ),
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'btn danger-outline',
-          onclick: async () => {
-            const n = tasksOfIssue(issue.id).length;
-            if (await confirmDialog({ title: 'Delete issue?', message: `"${issue.title}"${n ? ` and its ${n} task${n === 1 ? '' : 's'}` : ''} will be permanently deleted.` })) {
-              go('/issues');
-              actions.deleteIssue(issue.id);
-            }
-          },
-        },
-        icon('trash', 16),
-        'Delete issue',
-      ),
     ),
   );
 }

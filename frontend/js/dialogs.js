@@ -385,13 +385,12 @@ export function issueDialog() {
 
 export function settingsDialog({ message = '' } = {}) {
   const urlInput = h('input', { class: 'input', type: 'url', placeholder: 'https://your-api.example.com', 'aria-label': 'Server address', value: settings.apiUrl, autocomplete: 'off' });
-  const codeInput = h('input', { class: 'input', type: 'password', placeholder: 'Leave blank if the server has none', 'aria-label': 'Access code', value: settings.accessCode, autocomplete: 'off' });
   const status = h('div', { class: 'test-status', role: 'status' });
 
   const test = async () => {
     status.className = 'test-status';
     status.textContent = 'Testing…';
-    const override = { apiUrl: urlInput.value.trim().replace(/\/+$/, ''), accessCode: codeInput.value };
+    const override = { apiUrl: urlInput.value.trim().replace(/\/+$/, '') };
     try {
       await request('GET', '/members', undefined, override);
       status.className = 'test-status ok';
@@ -399,7 +398,7 @@ export function settingsDialog({ message = '' } = {}) {
       return true;
     } catch (e) {
       status.className = 'test-status bad';
-      status.textContent = e.status === 401 ? 'The server rejected the access code.' : e.message;
+      status.textContent = e.message;
       return false;
     }
   };
@@ -411,7 +410,6 @@ export function settingsDialog({ message = '' } = {}) {
       { class: 'form' },
       message ? h('p', { class: 'notice' }, message) : null,
       h('label', { class: 'field' }, h('span', { class: 'label' }, 'Server address'), urlInput),
-      h('label', { class: 'field' }, h('span', { class: 'label' }, 'Access code'), codeInput),
       h('div', { class: 'field-row' }, h('button', { type: 'button', class: 'btn secondary', onclick: test }, 'Test connection'), status),
     ),
     buttons: [
@@ -424,7 +422,7 @@ export function settingsDialog({ message = '' } = {}) {
             toast('Enter the server address', 'error');
             return false;
           }
-          settings.save(urlInput.value, codeInput.value);
+          settings.save(urlInput.value);
           state.loaded = false;
           await refresh();
         },

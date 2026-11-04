@@ -11,7 +11,6 @@ const $ = (id) => document.getElementById(id);
 const app = $('app');
 
 let promptedIdentity = false;
-let promptedSettings = false;
 let lastPath = null;
 let lastTaskId = null;
 
@@ -118,8 +117,8 @@ function renderConnecting() {
     h(
       'div',
       { class: 'empty' },
-      h('h3', {}, err.status === 401 ? 'Access code required' : 'Cannot connect'),
-      h('p', { class: 'muted' }, err.status === 401 ? 'The server needs a valid access code.' : err.message),
+      h('h3', {}, 'Cannot connect'),
+      h('p', { class: 'muted' }, err.message),
       h(
         'div',
         { class: 'empty-actions' },
@@ -133,7 +132,7 @@ function renderConnecting() {
 function syncComments(route) {
   const wanted = [];
   if (route.taskId && taskById(route.taskId)) wanted.push(['task', route.taskId]);
-  if (route.name === 'issue' && route.tab === 'overview' && issueById(route.issueId)) wanted.push(['issue', route.issueId]);
+  if (route.name === 'issue' && issueById(route.issueId)) wanted.push(['issue', route.issueId]);
   const keys = wanted.map(([kind, id]) => commentKey(kind, id));
   for (const key of [...state.comments.keys()]) if (!keys.includes(key)) state.comments.delete(key);
   for (const [kind, id] of wanted) if (!state.comments.has(commentKey(kind, id))) loadComments(kind, id);
@@ -158,10 +157,6 @@ function render() {
     detail.replaceChildren();
     detail.hidden = true;
     app.classList.remove('has-detail');
-    if (state.error && (state.error.status === 401 || !settings.apiUrl) && !promptedSettings) {
-      promptedSettings = true;
-      settingsDialog({ message: state.error.status === 401 ? 'The server needs an access code.' : '' });
-    }
     return;
   }
 

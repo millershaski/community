@@ -566,7 +566,7 @@ button {
 .cols-my .row {
   grid-template-columns: minmax(0, 1fr) 170px 100px;
 }
-.issues-table .row {
+.issue-row {
   grid-template-columns: minmax(0, 1fr) 160px 100px 130px minmax(0, 200px);
 }
 .cell {
@@ -583,11 +583,11 @@ button {
   top: 0;
 }
 .task-row,
-.issues-table .row:not(.list-head) {
+.issue-row:not(.list-head) {
   cursor: pointer;
 }
 .task-row:hover,
-.issues-table .row:not(.list-head):hover {
+.issue-row:not(.list-head):hover {
   background: var(--hover);
 }
 .task-row.selected {
@@ -747,12 +747,11 @@ button {
   margin-top: 14px;
 }
 
-/* ---------- issue overview ---------- */
+/* ---------- issue page: tasks + details in one view ---------- */
 
 .overview {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 32px;
+  display: block;
+  max-width: 860px;
   padding: 20px 24px;
 }
 .overview-main {
@@ -760,10 +759,58 @@ button {
   gap: 24px;
   align-content: start;
 }
-.overview-side {
+.inline-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 20px;
+  padding: 6px 0 14px;
+}
+.inline-field .label {
+  margin-bottom: 2px;
+}
+.inline-field .select,
+.inline-field .input {
+  width: auto;
+  min-width: 150px;
+}
+.progress-text {
+  align-self: center;
+}
+.issue-block {
+  border-bottom: 1px solid var(--border);
+}
+.issue-block > .row {
+  border-bottom: 0;
+}
+.sub-tasks {
+  margin: 0 0 8px 28px;
+  border-left: 2px solid var(--border);
+  padding-left: 8px;
+}
+.sub-tasks .row:last-child {
+  border-bottom: 0;
+}
+.expander {
   display: grid;
-  gap: 14px;
-  align-content: start;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+}
+.expander:hover {
+  background: #e3e8ec;
+}
+.expander .icon {
+  transition: transform 0.15s;
+}
+.expander[aria-expanded='false'] .icon {
+  transform: rotate(-90deg);
 }
 .section-title {
   margin: 0 0 8px;
@@ -1165,10 +1212,7 @@ button {
   :root {
     --pane-width: 380px;
   }
-  .overview {
-    grid-template-columns: 1fr;
-  }
-  .issues-table .row {
+  .issue-row {
     grid-template-columns: minmax(0, 1fr) 140px 100px 110px;
   }
   .c-deps {
@@ -1238,8 +1282,11 @@ button {
   .cols-my .add-row .add-issue {
     display: none;
   }
-  .issues-table .row {
+  .issue-row {
     grid-template-columns: minmax(0, 1fr) 90px;
+  }
+  .sub-tasks {
+    margin-left: 12px;
   }
   .c-owner,
   .c-progress {

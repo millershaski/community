@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import cors from 'cors';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
@@ -90,13 +89,7 @@ function paramId(value) {
   return n;
 }
 
-function safeEqual(a, b) {
-  const ha = crypto.createHash('sha256').update(a).digest();
-  const hb = crypto.createHash('sha256').update(b).digest();
-  return crypto.timingSafeEqual(ha, hb);
-}
-
-export function createApp(db, { accessCode = '', allowedOrigins = [], trustProxy = 0 } = {}) {
+export function createApp(db, { allowedOrigins = [], trustProxy = 0 } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', trustProxy);
@@ -106,25 +99,17 @@ export function createApp(db, { accessCode = '', allowedOrigins = [], trustProxy
     cors({
       origin: allowedOrigins.length ? allowedOrigins : true,
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: ['Content-Type'],
       maxAge: 600,
     }),
   );
   app.use(rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: true, legacyHeaders: false }));
   app.use(express.json({ limit: '100kb' }));
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true, authRequired: Boolean(accessCode) }));
+  app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
   const api = express.Router();
   app.use('/api', api);
-
-  api.use((req, _res, next) => {
-    if (!accessCode) return next();
-    const header = req.get('authorization') || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-    if (!token || !safeEqual(token, accessCode)) return next(new HttpError(401, 'Invalid or missing access code'));
-    next();
-  });
 
   api.use((req, _res, next) => {
     if (req.body === undefined || typeof req.body !== 'object' || Array.isArray(req.body) || req.body === null) {

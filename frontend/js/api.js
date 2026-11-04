@@ -1,18 +1,15 @@
 const URL_KEY = 'pm.apiUrl';
-const CODE_KEY = 'pm.accessCode';
+
+// Older versions stored an access code; drop it.
+localStorage.removeItem('pm.accessCode');
 
 export const settings = {
   get apiUrl() {
     const saved = localStorage.getItem(URL_KEY);
     return (saved ?? window.PM_CONFIG?.API_BASE_URL ?? '').trim().replace(/\/+$/, '');
   },
-  get accessCode() {
-    return localStorage.getItem(CODE_KEY) ?? '';
-  },
-  save(apiUrl, accessCode) {
+  save(apiUrl) {
     localStorage.setItem(URL_KEY, apiUrl.trim().replace(/\/+$/, ''));
-    if (accessCode) localStorage.setItem(CODE_KEY, accessCode);
-    else localStorage.removeItem(CODE_KEY);
   },
 };
 
@@ -25,12 +22,10 @@ export class ApiError extends Error {
 
 export async function request(method, path, body, override = {}) {
   const base = override.apiUrl ?? settings.apiUrl;
-  const code = override.accessCode ?? settings.accessCode;
   if (!base) throw new ApiError(0, 'The server address is not configured');
 
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (code) headers.Authorization = `Bearer ${code}`;
 
   let res;
   try {

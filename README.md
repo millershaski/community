@@ -51,7 +51,6 @@ Run the backend tests with `cd backend && npm test`.
 | --- | --- | --- |
 | `PORT` | `3000` | Port to listen on. |
 | `DB_PATH` | `./data/taskflow.db` | SQLite file. Must be on persistent storage in production. |
-| `ACCESS_CODE` | *(empty)* | If set, every API call must send `Authorization: Bearer <code>`. **Set this in production.** |
 | `ALLOWED_ORIGINS` | *(empty = any)* | Comma-separated list of browser origins allowed by CORS. **Set this in production.** |
 | `TRUST_PROXY` | `0` | Number of reverse proxies in front of the app (the Dockerfile sets `1`). |
 
@@ -69,7 +68,6 @@ The backend needs a place to run Node.js **and persistent disk storage** for the
    fly launch --no-deploy --copy-config --name YOUR-UNIQUE-APP-NAME
    fly volumes create taskflow_data --size 1 --region iad     # same region as primary_region in fly.toml
    fly secrets set \
-     ACCESS_CODE="pick-a-long-random-passphrase" \
      ALLOWED_ORIGINS="https://YOUR-GITHUB-USERNAME.github.io,https://localhost,capacitor://localhost"
    fly deploy
    fly scale count 1      # SQLite = a single machine
@@ -84,7 +82,7 @@ The backend needs a place to run Node.js **and persistent disk storage** for the
 
 - Create a **Web Service** from this repo with root directory `backend` and runtime **Docker** (it uses `backend/Dockerfile`).
 - Attach a **persistent disk/volume mounted at `/data`** (on Render this requires a paid instance type).
-- Set the environment variables `ACCESS_CODE` and `ALLOWED_ORIGINS` from the table above. `PORT` is provided by the platform.
+- Set the environment variable `ALLOWED_ORIGINS` from the table above. `PORT` is provided by the platform.
 - Your API address is the URL the platform gives you (must be `https://`).
 
 ### Back up your data
@@ -110,7 +108,7 @@ All data is the single file at `DB_PATH` (`/data/taskflow.db` in the container).
    - Value: your backend address, e.g. `https://YOUR-UNIQUE-APP-NAME.fly.dev` (no trailing slash)
 4. Open the **Actions** tab, select **Deploy frontend to GitHub Pages**, and click **Run workflow** (it also runs automatically on every push to `main` that changes `frontend/`).
 5. When it finishes, the site is live at `https://YOUR-GITHUB-USERNAME.github.io/YOUR-REPO/`.
-6. Open it. Enter the **access code** you set on the backend when asked (avatar menu → *Connection settings* to change it later). The server address and code are stored only in that browser.
+6. Open it and choose who you are. The server address is stored only in that browser (avatar menu → *Connection settings* to change it).
 
 Make sure the backend's `ALLOWED_ORIGINS` contains `https://YOUR-GITHUB-USERNAME.github.io`; otherwise the browser blocks the requests.
 
@@ -154,19 +152,18 @@ To use your own app id/name, edit `mobile/capacitor.config.json` (`appId`, `appN
 ## 5. Using the app
 
 - **My tasks** - tasks assigned to the current member, grouped by Overdue / Today / Next 7 days / Later / No due date. Add tasks for yourself with the box at the top.
-- **All issues** - table of issues with owner, due date, progress and dependencies. Filter Open / Closed / All.
-- **Issue → List** - the issue's tasks. Type in "Add task…" and press Enter. Click a circle to complete a task, click a row to open the task panel (assignee, due date, description, comments, delete).
-- **Issue → Overview** - description, owner, due date, status, **Depends on** (add/remove prerequisite issues; "Blocking" shows who depends on this one), issue comments, delete.
+- **All issues** - table of issues with owner, due date, progress and dependencies, with each issue's tasks listed right underneath (use the arrow to collapse). Filter Open / Closed / All.
+- **Issue page** - one view with everything: owner, due date and status at the top, then the issue's tasks (type in "Add task…" and press Enter; click a circle to complete a task; click a row to open the task panel with assignee, due date, description, comments and delete), then description, **Depends on** (add/remove prerequisite issues; "Blocking" shows who depends on this one) and issue comments. Close, reopen or delete the issue from the top right.
 - **Team** - add, edit (name, icon, color) or delete members. Deleting a member unassigns their tasks and issues; their comments remain, shown as "Deleted member".
 - **Search** (top bar) finds issues and tasks by title.
 
 ## API reference
 
-All paths are under `/api`. JSON in, JSON out. If `ACCESS_CODE` is set, send `Authorization: Bearer <code>` (except `/api/health`). Dates are `YYYY-MM-DD`.
+All paths are under `/api`. JSON in, JSON out. There is no authentication. Dates are `YYYY-MM-DD`.
 
 | Method & path | Notes |
 | --- | --- |
-| `GET /health` | `{ ok, authRequired }` |
+| `GET /health` | `{ ok }` |
 | `GET /members`, `POST /members` | body: `name`, `icon`, `color` (`#rrggbb`). `icon` is an emoji/short text, or `img:avatars/<file>.png` for a bundled image. |
 | `PATCH /members/:id`, `DELETE /members/:id` | |
 | `GET /issues`, `POST /issues` | body: `title`, `description`, `owner_id`, `due_date`, `status` (`open`/`closed`), `depends_on` (array of issue ids). Responses include `blocked`, `task_count`, `completed_task_count`. |
@@ -180,6 +177,6 @@ All paths are under `/api`. JSON in, JSON out. If `ACCESS_CODE` is set, send `Au
 
 ## Security notes
 
-- The `ACCESS_CODE` is one shared passphrase for the whole team, not per-user login. Anyone with the code can act as any member (the "who are you" choice is trust-based). That is suitable for a small trusted team; add real per-user authentication before opening it to the public.
-- Always serve the backend over HTTPS, and set both `ACCESS_CODE` and `ALLOWED_ORIGINS` in production (the server prints a warning at startup if either is missing).
+- There is no login or access code: anyone who knows the backend address can read and change all data, and the "who are you" choice is trust-based. `ALLOWED_ORIGINS` only restricts which *websites* may call the API from a browser; it does not stop other clients. Suitable for a small trusted team; add authentication before sharing the address widely.
+- Always serve the backend over HTTPS, and set `ALLOWED_ORIGINS` in production (the server prints a warning at startup if it is missing).
 - The API validates all input, uses parameterized SQL, rate-limits requests, and the frontend renders all user text as plain text (no HTML injection).

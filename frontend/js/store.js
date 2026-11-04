@@ -11,7 +11,7 @@ export const state = {
   meId: Number(localStorage.getItem('pm.me')) || null,
   loaded: false,
   error: null,
-  ui: { focus: null, myTab: 'incomplete', issueFilter: 'open', showCompleted: false },
+  ui: { focus: null, myTab: 'incomplete', issueFilter: 'open', showCompleted: false, collapsedIssues: new Set() },
 };
 
 const listeners = new Set();
